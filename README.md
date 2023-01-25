@@ -1,6 +1,6 @@
 # Explainable Data-Driven Optimization: From Context to Decision and Back Again
 This code can be used to reproduce all figures and results in the manuscript titled "Explainable Data-Driven Optimization:
-From Context to Decision and Back Again".
+From Context to Decision and Back Again" available at https://arxiv.org/abs/2301.10074.
 
 ## Installation
 The project requires the Gurobi solver to be installed with an authorized license. Free academic licenses can be obtained at: https://www.gurobi.com/academia/academic-program-and-licenses/ .
