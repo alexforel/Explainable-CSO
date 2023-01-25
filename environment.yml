@@ -1,0 +1,13 @@
+# To install packages and dependencies, run:
+# conda env create --file environment.yml
+name: explainable-cso
+channels:
+  - gurobi
+  - https://conda.anaconda.org/gurobi
+  - defaults
+dependencies:
+  - python=3.9.13
+  - gurobi=9.5.1
+  - scikit-learn=1.0.2
+  - pandas=1.4
+  - networkx=2.8.4
