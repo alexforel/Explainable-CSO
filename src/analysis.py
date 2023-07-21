@@ -35,6 +35,19 @@ def get_small_computation_times_table(df, experimentList, nList):
     return smallTable
 
 
+def get_percentage_features_changed(df, experimentList, nList):
+    smallTable = init_small_table_list()
+    # RF: T = 100
+    dataDf = df[df['nbTrees'] == 100]
+    smallTable = fill_col_percentage_features_changed(
+        smallTable, dataDf, 2, nList, experimentList, startRow=2, increment=2)
+    # k-NN: k=10
+    dataDf = df[df['nbNeighbors'] == 10]
+    smallTable = fill_col_percentage_features_changed(
+        smallTable, dataDf, 3, nList, experimentList, startRow=2, increment=2)
+    return smallTable
+
+
 def get_symmetric_context_table(df, experimentList, nList):
     table = init_table_list()
     dataDf = df[df['nbTrees'] == 100]
@@ -182,6 +195,24 @@ def fill_col_computation_times(table, dataDf, colIndex,
                 np.mean(relTimes[relTimes != 0.]))
             table[row][colIndex+increment] = "{:0.2f}".format(
                 np.mean(absTimes[absTimes != 0.]))
+            row = row + 1
+    return table
+
+
+def fill_col_percentage_features_changed(table, dataDf, colIndex,
+                                         nList, experimentList,
+                                         startRow=3, increment=4):
+    row = startRow
+    for experiment in experimentList:
+        df1 = dataDf[dataDf['experiment'] == experiment]
+        for n in nList:
+            df2 = df1[df1['nbSamples'] == n]
+            perc_change_rel = np.array(df2['perc_feat_change_rel'])
+            perc_change_abs = np.array(df2['perc_feat_change_abs'])
+            table[row][colIndex] = "{:0.2f}".format(
+                np.mean(perc_change_rel[perc_change_rel != 0.0]))
+            table[row][colIndex+increment] = "{:0.2f}".format(
+                np.mean(perc_change_abs[perc_change_abs != 0.0]))
             row = row + 1
     return table
 

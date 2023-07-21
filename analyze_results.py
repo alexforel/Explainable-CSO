@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 # Import local functions
 from src.analysis import write_table_to_tex
+from src.analysis import get_percentage_features_changed
 from src.analysis import get_computation_times_table
 from src.analysis import get_small_computation_times_table
 from src.analysis import get_forest_depth_computation_times_table
@@ -60,6 +61,34 @@ smallCompTimesTable = get_small_computation_times_table(
     resultDf, experimentList, nList)
 # Write and export table to tex file
 write_table_to_tex(smallCompTimesTable, 'small_computation_times', outputPath)
+
+# -------- Percentage of features changed --------
+# Read list of explanations
+x_init = get_x_as_list('x_init', resultDf)
+x_rel = get_x_as_list('x_rel', resultDf)
+x_abs = get_x_as_list('x_abs', resultDf)
+# Add column to dataframe with distance
+perc_feat_change_rel = []
+perc_feat_change_abs = []
+for i in range(len(resultDf.index)):
+    if len(x_rel[i]) == 0:
+        perc_feat_change_rel.append(-1)
+    else:
+        perc_feat_change_rel.append(
+            (100/len(x_init[i])) * np.linalg.norm(x_init[i] - x_rel[i],
+                                                  ord=0))
+    if len(x_abs[i]) == 0:
+        perc_feat_change_abs.append(-1)
+    else:
+        perc_feat_change_abs.append(
+            (100/len(x_init[i])) * np.linalg.norm(x_init[i] - x_abs[i],
+                                                  ord=0))
+# Store in result df
+resultDf['perc_feat_change_rel'] = perc_feat_change_rel
+resultDf['perc_feat_change_abs'] = perc_feat_change_abs
+featChangeTable = get_percentage_features_changed(
+    resultDf, experimentList, nList)
+write_table_to_tex(featChangeTable, 'percentage_feature_changed', outputPath)
 
 # -------- Symmetric contexts --------
 # -> Table 4 in paper
@@ -319,11 +348,12 @@ compTimesTable = get_forest_depth_computation_times_table(
 write_table_to_tex(compTimesTable, 'depth_comp_times', outputPath)
 
 # ----- Sensitivity to number of features and sample size -----
+#           EXPECTED COSTS SHORTEST PATH
 # -> Export csv data used to create Figure 2 in tikz
 # Read and concatenate results into one single dataframe
 featPath = outputPath+"/path_feat/"
 filepaths = [featPath + f for f in os.listdir(featPath) if f.endswith('.csv')]
-featuresFiles = [p for p in filepaths if 'feat' in p]
+featuresFiles = [p for p in filepaths if 'cvar' not in p]
 featuresDf = pd.concat((pd.read_csv(f) for f in featuresFiles),
                        ignore_index=True)
 nList = [100, 500, 1000, 5000]
@@ -359,6 +389,96 @@ for i, n in enumerate(nList):
 folderName = os.path.join(outputPath, "csv")
 os.makedirs(folderName, exist_ok=True)
 dfToExport.to_csv(folderName+'/path_feat_sens.csv', index=False)
+
+# Percentage of features changed by explanations for fixed n and varying d_x
+percFeatChangRel = np.zeros(len(d_xList))
+percFeatChangAbs = np.zeros(len(d_xList))
+nbFeatChangRel = np.zeros(len(d_xList))
+nbFeatChangAbs = np.zeros(len(d_xList))
+tempDf = featuresDf[featuresDf['nbSamples'] == 500]
+for j in range(len(d_xList)):
+    tempDf2 = tempDf[tempDf['d_x'] == d_xList[j]]
+    x_init = get_x_as_list('x_init', tempDf2)
+    x_rel = get_x_as_list('x_rel', tempDf2)
+    x_abs = get_x_as_list('x_abs', tempDf2)
+    rel_nb_change = []
+    abs_nb_change = []
+    rel_change = []
+    abs_change = []
+    for i in range(len(x_init)):
+        if len(x_rel[i]) > 0:
+            change = np.linalg.norm(x_init[i] - x_rel[i], ord=0)
+            rel_nb_change.append(change)
+            rel_change.append((100/len(x_init[i])) * change)
+        if len(x_abs[i]) > 0:
+            change = np.linalg.norm(x_init[i] - x_abs[i], ord=0)
+            abs_nb_change.append(change)
+            abs_change.append((100/len(x_init[i])) * change)
+    rel_change = np.array(rel_change)
+    abs_change = np.array(abs_change)
+    rel_change = rel_change[rel_change != 0.0]
+    abs_change = abs_change[abs_change != 0.0]
+    rel_nb_change = np.array(rel_nb_change)
+    abs_nb_change = np.array(abs_nb_change)
+    rel_nb_change = rel_nb_change[rel_nb_change != 0.0]
+    abs_nb_change = abs_nb_change[abs_nb_change != 0.0]
+    percFeatChangRel[j] = np.mean(rel_change)
+    percFeatChangAbs[j] = np.mean(abs_change)
+    nbFeatChangRel[j] = np.mean(rel_nb_change)
+    nbFeatChangAbs[j] = np.mean(abs_nb_change)
+# Export to csv file
+dfToExport = pd.DataFrame({'d_x': d_xList})
+dfToExport['nbFeatChangRel'] = nbFeatChangRel
+dfToExport['nbFeatChangAbs'] = nbFeatChangAbs
+dfToExport['percFeatChangRel'] = percFeatChangRel
+dfToExport['percFeatChangAbs'] = percFeatChangAbs
+folderName = os.path.join(outputPath, "csv")
+os.makedirs(folderName, exist_ok=True)
+dfToExport.to_csv(folderName+'/perc_feat_change.csv', index=False)
+
+
+# ----- Sensitivity to number of features and sample size -----
+#           CVaR SHORTEST PATH
+# -> Export csv data used to create Figure 2 in tikz
+# Read and concatenate results into one single dataframe
+featPath = outputPath+"/path_feat/"
+filepaths = [featPath + f for f in os.listdir(featPath) if f.endswith('.csv')]
+featuresFiles = [p for p in filepaths if 'cvar' in p]
+featuresDf = pd.concat((pd.read_csv(f) for f in featuresFiles),
+                       ignore_index=True)
+nList = [100, 500, 1000, 5000]
+d_xList = np.sort(featuresDf['d_x'].unique())
+# Get average computations times and std
+avgRelTime = np.zeros((len(nList), len(d_xList)))
+avgAbsTime = np.zeros((len(nList), len(d_xList)))
+stdRelTime = np.zeros((len(nList), len(d_xList)))
+stdAbsTime = np.zeros((len(nList), len(d_xList)))
+for i in range(len(nList)):
+    tempDf = featuresDf[featuresDf['nbSamples'] == nList[i]]
+    for j in range(len(d_xList)):
+        tempDf2 = tempDf[tempDf['d_x'] == d_xList[j]]
+        relTimes = np.array(tempDf2['solvetime_relative'])
+        absTimes = np.array(tempDf2['solvetime_absolute'])
+        avgRelTime[i, j] = np.mean(relTimes[relTimes != 0.])
+        avgAbsTime[i, j] = np.mean(absTimes[absTimes != 0.])
+        stdRelTime[i, j] = np.std(relTimes[relTimes != 0.])
+        stdAbsTime[i, j] = np.std(absTimes[absTimes != 0.])
+# Export to csv file
+dfToExport = pd.DataFrame({'d_x': d_xList})
+for i, n in enumerate(nList):
+    dfToExport[str(n)+'_avgRelTime'] = avgRelTime[i, :]
+    dfToExport[str(n)+'_avgRelTime_plus_std'] = (
+        avgRelTime[i, :]+stdRelTime[i, :])
+    dfToExport[str(n)+'_avgRelTime_minus_std'] = (
+        avgRelTime[i, :]-stdRelTime[i, :])
+    dfToExport[str(n)+'_avgBsTime'] = avgAbsTime[i, :]
+    dfToExport[str(n)+'_avgBsTime_plus_std'] = (
+        avgAbsTime[i, :]+stdAbsTime[i, :])
+    dfToExport[str(n)+'_avgBsTime_minus_std'] = (
+        avgAbsTime[i, :]-stdAbsTime[i, :])
+folderName = os.path.join(outputPath, "csv")
+os.makedirs(folderName, exist_ok=True)
+dfToExport.to_csv(folderName+'/cvar_path_feat_sens.csv', index=False)
 
 # ----- Value of dual reformulation for linear decision problems -----
 # -> Figure 8

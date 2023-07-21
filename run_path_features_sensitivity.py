@@ -21,7 +21,7 @@ gurobiEnv.setParam('Threads', 8)
 gurobiEnv.start()
 
 # ---- Create simulation setting with synthetic data ----
-experimentName = 'path'
+experimentName = 'path' # use 'path' or 'cvar-path'
 nbTrees = 100
 NB_REPETITIONS = 100
 nbSamplesList = [100, 500, 1000, 5000]
